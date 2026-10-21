@@ -1,0 +1,6 @@
+{
+  "name": "MitraArja - Super-App Hyperlocal Delivery & Marketplace",
+  "description": "MitraArja: Hyperlocal super-app for Arjawinangun, Cirebon and nationwide. Food delivery, fresh grocery, pharmacy, courier logistics, and digital PPOB services.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
