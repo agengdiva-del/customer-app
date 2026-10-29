@@ -10,7 +10,8 @@ import {
   ComplaintTicket, 
   ServiceType, 
   MenuItem, 
-  Merchant 
+  Merchant,
+  CustomerRegistrationData 
 } from '../types';
 import { 
   INITIAL_USER, 
@@ -42,6 +43,10 @@ interface AppContextType {
   isLoggedIn: boolean;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
+  authInitialMode: 'login' | 'register';
+  setAuthInitialMode: (mode: 'login' | 'register') => void;
+  openAuthModal: (mode?: 'login' | 'register') => void;
+  registerCustomer: (data: CustomerRegistrationData) => void;
   loginUser: (method: 'whatsapp' | 'phone' | 'email' | 'google' | 'guest', credentials?: any) => void;
   logoutUser: () => void;
   submitKyc: (docType: 'ktp' | 'sim' | 'paspor', docNumber: string) => void;
@@ -105,8 +110,6 @@ interface AppContextType {
   createTicket: (category: any, title: string, description: string, orderId?: string) => void;
 
   // Modals & Tools
-  isEnterpriseHubOpen: boolean;
-  setIsEnterpriseHubOpen: (open: boolean) => void;
   isKycModalOpen: boolean;
   setIsKycModalOpen: (open: boolean) => void;
   toastMessage: string | null;
@@ -147,6 +150,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
+
+  const openAuthModal = (mode: 'login' | 'register' = 'login') => {
+    setAuthInitialMode(mode);
+    setIsAuthModalOpen(true);
+  };
 
   // Addresses
   const [addresses, setAddresses] = useState<Address[]>(() => {
@@ -231,7 +240,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ]);
 
   // Modals & UI
-  const [isEnterpriseHubOpen, setIsEnterpriseHubOpen] = useState<boolean>(false);
   const [isKycModalOpen, setIsKycModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -309,6 +317,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateUserProfile = (updates: Partial<User>) => {
     setUser(prev => ({ ...prev, ...updates }));
     showToast('Profil Anda berhasil diperbarui');
+  };
+
+  const registerCustomer = (data: CustomerRegistrationData) => {
+    const newUserId = `usr-${Date.now()}`;
+    const newUser: User = {
+      id: newUserId,
+      name: data.fullName,
+      phone: data.phone,
+      email: data.email || `${data.phone.replace(/^0/, '62')}@pelanggan.mitraarja.id`,
+      avatarUrl: data.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      verificationStatus: 'verified',
+      phoneVerified: true,
+      accountStatus: 'active',
+      loyaltyLevel: 'bronze',
+      points: 100, // Welcome registration points bonus!
+      referralCode: `ARJA${data.phone.slice(-4) || '99'}`,
+      referralCount: 0,
+      twoFactorEnabled: true,
+    };
+
+    const newPrimaryAddress: Address = {
+      id: `addr-prim-${Date.now()}`,
+      userId: newUserId,
+      label: 'Rumah',
+      recipientName: data.fullName,
+      phone: data.phone,
+      streetAddress: data.primaryAddress.streetAddress,
+      village: data.primaryAddress.village,
+      district: data.primaryAddress.district,
+      city: 'Kabupaten Cirebon',
+      province: 'Jawa Barat',
+      postalCode: '45162',
+      latitude: data.primaryAddress.latitude,
+      longitude: data.primaryAddress.longitude,
+      landmark: data.primaryAddress.landmark,
+      driverNotes: data.primaryAddress.driverNotes,
+      notes: data.primaryAddress.landmark || data.primaryAddress.driverNotes || '',
+      isDefault: true,
+    };
+
+    const updatedAddresses = [newPrimaryAddress];
+
+    if (data.additionalAddress && data.additionalAddress.streetAddress) {
+      const newAdditionalAddress: Address = {
+        id: `addr-add-${Date.now() + 1}`,
+        userId: newUserId,
+        label: data.additionalAddress.label,
+        recipientName: data.fullName,
+        phone: data.phone,
+        streetAddress: data.additionalAddress.streetAddress,
+        village: data.additionalAddress.village,
+        district: data.additionalAddress.district,
+        city: 'Kabupaten Cirebon',
+        province: 'Jawa Barat',
+        postalCode: '45162',
+        latitude: -6.6450,
+        longitude: 108.4140,
+        landmark: data.additionalAddress.landmark,
+        notes: data.additionalAddress.landmark || '',
+        isDefault: false,
+      };
+      updatedAddresses.push(newAdditionalAddress);
+    }
+
+    setUser(newUser);
+    setAddresses(updatedAddresses);
+    setSelectedAddress(newPrimaryAddress);
+    setIsLoggedIn(true);
+    setIsAuthModalOpen(false);
+
+    showToast(`Registrasi Berhasil! Akun ${data.fullName} aktif (Nomor HP terverifikasi). Siap memesan makanan & barang lokal.`);
   };
 
   // Address operations
@@ -657,6 +736,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isLoggedIn,
         isAuthModalOpen,
         setIsAuthModalOpen,
+        authInitialMode,
+        setAuthInitialMode,
+        openAuthModal,
+        registerCustomer,
         loginUser,
         logoutUser,
         submitKyc,
@@ -702,8 +785,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isFavorite,
         tickets,
         createTicket,
-        isEnterpriseHubOpen,
-        setIsEnterpriseHubOpen,
         isKycModalOpen,
         setIsKycModalOpen,
         toastMessage,

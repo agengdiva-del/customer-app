@@ -19,7 +19,6 @@ import { OrderHistoryView } from './components/orders/OrderHistoryView';
 import { NotificationCenterView } from './components/notifications/NotificationCenterView';
 import { AccountView } from './components/account/AccountView';
 import { KycModal } from './components/kyc/KycModal';
-import { EnterpriseHubModal } from './components/developer/EnterpriseHubModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { Wifi, BatteryMedium, Signal } from 'lucide-react';
 
@@ -89,7 +88,6 @@ const AppContent: React.FC = () => {
       <OrderTrackingModal />
       <ChatModal />
       <KycModal />
-      <EnterpriseHubModal />
       <AuthModal />
       <Toast />
     </div>

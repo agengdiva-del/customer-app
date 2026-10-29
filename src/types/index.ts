@@ -31,6 +31,8 @@ export interface User {
   email: string;
   avatarUrl: string;
   verificationStatus: VerificationStatus;
+  phoneVerified?: boolean;
+  accountStatus?: 'active' | 'unverified';
   kycDocType?: 'ktp' | 'sim' | 'paspor';
   kycDocNumber?: string;
   kycDocImage?: string;
@@ -58,8 +60,36 @@ export interface Address {
   postalCode: string;
   latitude: number;
   longitude: number;
+  landmark?: string; // Patokan lokasi
+  driverNotes?: string; // Catatan untuk driver
   notes?: string;
   isDefault: boolean;
+}
+
+export interface CustomerRegistrationData {
+  fullName: string;
+  phone: string;
+  email?: string;
+  password?: string;
+  avatarUrl?: string;
+  phoneVerified: boolean;
+  primaryAddress: {
+    streetAddress: string;
+    village: string;
+    district: string;
+    landmark?: string;
+    latitude: number;
+    longitude: number;
+    driverNotes?: string;
+  };
+  additionalAddress?: {
+    label: 'Kantor' | 'Kost' | 'Lainnya';
+    streetAddress: string;
+    village: string;
+    district: string;
+    landmark?: string;
+  };
+  agreedToTerms: boolean;
 }
 
 export interface MenuItem {
@@ -74,6 +104,10 @@ export interface MenuItem {
   isAvailable: boolean;
   isPopular?: boolean;
   needsPrescription?: boolean;
+  soldCount?: number;
+  rating?: number;
+  merchantName?: string;
+  merchantCategory?: string;
 }
 
 export interface Merchant {

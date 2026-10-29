@@ -1,336 +1,431 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { INITIAL_MERCHANTS, VOUCHERS_LIST } from '../../data/mockData';
-import { BannerCarousel } from './BannerCarousel';
-import { ServiceGrid } from './ServiceGrid';
-import { ActiveOrderWidget } from './ActiveOrderWidget';
-import { MerchantCard } from './MerchantCard';
+import { INITIAL_MERCHANTS } from '../../data/mockData';
+import { ShopeeProductCard } from './ShopeeProductCard';
+import { MenuItem, Merchant } from '../../types';
 import { 
   Search, 
-  SlidersHorizontal, 
-  QrCode, 
-  ArrowUpRight, 
-  Send, 
-  Sparkles, 
-  Tag, 
+  X, 
+  Flame, 
+  Star, 
+  ArrowDownUp, 
+  SlidersHorizontal,
+  UserPlus, 
+  Wallet, 
+  Clock,
   ChevronRight,
-  ShieldCheck
+  Sparkles
 } from 'lucide-react';
+
+type SortCriteria = 'terlaris' | 'populer' | 'harga_asc' | 'harga_desc' | 'nama_asc';
+type CategoryCriteria = 'all' | 'warung_makan' | 'jajanan' | 'minuman' | 'cirebon' | 'sembako';
+
+interface CatalogEntry {
+  item: MenuItem;
+  merchant: Merchant;
+}
 
 export const HomeView: React.FC = () => {
   const { 
     walletBalance, 
-    user, 
-    setActiveTab, 
-    setActiveService, 
-    showToast,
-    setIsKycModalOpen
+    openAuthModal, 
+    setSelectedMerchant, 
+    activeOrder,
+    setIsTrackingModalOpen,
+    setActiveTab,
+    showToast
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'nearest' | 'highest_rated' | 'promo' | 'open'>('all');
+  const [sortBy, setSortBy] = useState<SortCriteria>('terlaris');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryCriteria>('all');
 
-  // Filter merchants based on search and selected filter
-  const filteredMerchants = INITIAL_MERCHANTS.filter(m => {
-    const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.menu.some(dish => dish.name.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    if (!matchesSearch) return false;
+  // Flatten all menu items from all merchants into a rich product catalog
+  const allCatalogProducts: CatalogEntry[] = useMemo(() => {
+    const list: CatalogEntry[] = [];
+    INITIAL_MERCHANTS.forEach(m => {
+      m.menu.forEach(dish => {
+        list.push({
+          item: {
+            ...dish,
+            merchantName: m.name,
+            merchantCategory: m.category,
+            rating: dish.rating || m.rating,
+            soldCount: dish.soldCount || (dish.isPopular ? 1500 : 350)
+          },
+          merchant: m
+        });
+      });
+    });
+    return list;
+  }, []);
 
-    if (filterType === 'nearest') return m.distanceKm <= 1.2;
-    if (filterType === 'highest_rated') return m.rating >= 4.8;
-    if (filterType === 'open') return m.isOpen;
-    if (filterType === 'promo') return m.menu.some(dish => dish.originalPrice && dish.originalPrice > dish.price);
+  // Filter and sort items based on Nama / Jenis / Harga / Terlaris / Populer
+  const filteredProducts = useMemo(() => {
+    return allCatalogProducts.filter(({ item, merchant }) => {
+      // 1. Kriteria Nama (Instant keyword filter)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = item.name.toLowerCase().includes(q);
+        const matchMerchant = merchant.name.toLowerCase().includes(q);
+        const matchCat = item.category?.toLowerCase().includes(q);
+        const matchDesc = item.description?.toLowerCase().includes(q);
+        if (!matchName && !matchMerchant && !matchCat && !matchDesc) {
+          return false;
+        }
+      }
 
-    return true;
-  });
+      // 2. Kriteria Jenis / Kategori
+      if (categoryFilter === 'warung_makan') {
+        const text = (item.category + ' ' + merchant.category + ' ' + item.name).toLowerCase();
+        const isWarungMakan =
+          text.includes('makan') ||
+          text.includes('nasi') ||
+          text.includes('tradisional') ||
+          text.includes('sup') ||
+          text.includes('daging') ||
+          text.includes('bakso') ||
+          text.includes('mie') ||
+          text.includes('sate') ||
+          text.includes('warteg');
+        if (!isWarungMakan) return false;
+      } else if (categoryFilter === 'jajanan') {
+        const text = (item.category + ' ' + merchant.category + ' ' + item.name).toLowerCase();
+        const isJajanan =
+          text.includes('jajanan') ||
+          text.includes('camilan') ||
+          text.includes('martabak') ||
+          text.includes('gorengan') ||
+          text.includes('tahu') ||
+          text.includes('seblak') ||
+          text.includes('pisang') ||
+          text.includes('cireng');
+        if (!isJajanan) return false;
+      } else if (categoryFilter === 'minuman') {
+        const text = (item.category + ' ' + merchant.category + ' ' + item.name).toLowerCase();
+        const isMinuman =
+          text.includes('minum') ||
+          text.includes('es ') ||
+          text.includes('es') ||
+          text.includes('cendol') ||
+          text.includes('teh') ||
+          text.includes('kelapa') ||
+          text.includes('wedang');
+        if (!isMinuman) return false;
+      } else if (categoryFilter === 'cirebon') {
+        const text = (item.name + ' ' + item.description + ' ' + merchant.name).toLowerCase();
+        const isKhasCirebon =
+          text.includes('jamblang') ||
+          text.includes('empal') ||
+          text.includes('lengko') ||
+          text.includes('gejrot') ||
+          text.includes('balakutak') ||
+          text.includes('cirebon') ||
+          text.includes('docang');
+        if (!isKhasCirebon) return false;
+      } else if (categoryFilter === 'sembako') {
+        const text = (item.category + ' ' + merchant.category + ' ' + item.name).toLowerCase();
+        const isSembako =
+          merchant.type === 'grocery' ||
+          text.includes('sembako') ||
+          text.includes('sayur') ||
+          text.includes('bumbu') ||
+          text.includes('beras') ||
+          text.includes('minyak');
+        if (!isSembako) return false;
+      }
+
+      return true;
+    }).sort((a, b) => {
+      // 3. Kriteria Sort: Terlaris / Populer / Harga (Asc/Desc) / Nama (A-Z)
+      if (sortBy === 'terlaris') {
+        const aSold = a.item.soldCount || (a.item.isPopular ? 1500 : 200);
+        const bSold = b.item.soldCount || (b.item.isPopular ? 1500 : 200);
+        return bSold - aSold;
+      }
+      if (sortBy === 'populer') {
+        const aScore = (a.item.isPopular ? 50 : 0) + ((a.item.rating || a.merchant.rating) * 100);
+        const bScore = (b.item.isPopular ? 50 : 0) + ((b.item.rating || b.merchant.rating) * 100);
+        return bScore - aScore;
+      }
+      if (sortBy === 'harga_asc') {
+        return a.item.price - b.item.price;
+      }
+      if (sortBy === 'harga_desc') {
+        return b.item.price - a.item.price;
+      }
+      if (sortBy === 'nama_asc') {
+        return a.item.name.localeCompare(b.item.name, 'id');
+      }
+      return 0;
+    });
+  }, [allCatalogProducts, searchQuery, categoryFilter, sortBy]);
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Brand Hero Welcome Banner featuring AWD Official Logo */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-900 text-white rounded-3xl p-4 sm:p-5 shadow-lg border border-blue-500/30 flex items-center justify-between gap-4 overflow-hidden relative">
-        <div className="space-y-1 z-10">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-500/30 border border-blue-400/40 text-[10px] font-extrabold uppercase tracking-widest text-sky-300">
-              ARJAWINANGUN HIPERLOKAL
-            </span>
+    <div className="space-y-2.5 pb-20">
+      {/* 1. SLIM & COMPACT BRAND HEADER (Ringkas 1 Layar, Hemat Ruang, Logo AWD & Tombol Daftar) */}
+      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-900 text-white rounded-2xl p-2.5 sm:p-3 shadow-md border border-blue-500/30 flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {/* AWD Official Logo Vektor Gambar */}
+          <div className="relative shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full p-0.5 bg-gradient-to-tr from-sky-400 via-blue-500 to-indigo-500 shadow-sm">
+            <img
+              src="/assets/aistudio/Designer_b056b7f0.png"
+              alt="AWD Logo"
+              className="w-full h-full object-contain rounded-full bg-white"
+            />
           </div>
-          <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white">
-            AWD <span className="text-sky-400 font-extrabold">Arjawinangun Delivery</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-blue-100 max-w-md">
-            Layanan pengantaran makanan, pasar, apotek, dan paket resmi <strong className="text-white">By Wong Nangun</strong>.
-          </p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs sm:text-sm font-black tracking-tight text-white leading-none">
+                AWD <span className="text-sky-300 font-extrabold">Pelanggan</span>
+              </span>
+              <span className="px-1.5 py-0.2 rounded bg-sky-500/30 border border-sky-400/40 text-[9px] font-extrabold uppercase text-sky-200">
+                Khusus Pelanggan
+              </span>
+            </div>
+            <p className="text-[10px] sm:text-[11px] text-blue-100/90 truncate leading-tight mt-0.5">
+              Pesan makanan warung, jajanan pasar & sembako Wong Nangun
+            </p>
+          </div>
         </div>
 
-        {/* AWD Circular Emblem Logo */}
-        <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-full p-1 bg-gradient-to-tr from-sky-400 via-blue-500 to-indigo-500 shadow-xl shadow-blue-500/30">
-          <img
-            src="/assets/aistudio/Designer_b056b7f0.png"
-            alt="AWD Logo"
-            className="w-full h-full object-contain rounded-full bg-white shadow-inner"
-          />
+        {/* Quick Actions: Daftar Pelanggan & Saldo Dompet */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className="flex items-center gap-1 px-2 py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-bold text-white transition-colors"
+            title="MitraPay Saldo"
+          >
+            <Wallet className="w-3.5 h-3.5 text-sky-300" />
+            <span className="font-mono text-sky-200 hidden sm:inline">Rp{walletBalance.toLocaleString('id-ID')}</span>
+          </button>
+
+          <button
+            onClick={() => openAuthModal('register')}
+            className="flex items-center gap-1 px-2.5 py-1 sm:py-1.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-300 hover:to-blue-400 text-slate-950 font-black text-[11px] sm:text-xs shadow-xs transition-transform active:scale-95"
+          >
+            <UserPlus className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+            <span className="whitespace-nowrap">Daftar Pelanggan</span>
+          </button>
         </div>
       </div>
 
-      {/* Search Bar & Filter Strip */}
-      <section className="space-y-2.5">
+      {/* 2. ACTIVE DELIVERY SLIM ALERT (Jika Ada Pengantaran Aktif) */}
+      {activeOrder && activeOrder.status !== 'completed' && activeOrder.status !== 'cancelled' && (
+        <div
+          onClick={() => setIsTrackingModalOpen(true)}
+          role="button"
+          tabIndex={0}
+          className="bg-blue-950/90 hover:bg-blue-950 text-white rounded-xl px-3 py-2 border border-blue-500/40 flex items-center justify-between gap-2 shadow-xs cursor-pointer text-xs"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping shrink-0" />
+            <span className="font-bold text-sky-300 truncate">Kurir AWD Antar Pesanan:</span>
+            <span className="font-medium text-slate-200 truncate">{activeOrder.merchantName}</span>
+          </div>
+          <div className="flex items-center gap-1 text-[11px] text-amber-300 font-mono shrink-0 font-bold">
+            <Clock className="w-3 h-3" />
+            <span>~{activeOrder.etaMinutes}m</span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+          </div>
+        </div>
+      )}
+
+      {/* 3. SEARCH & CRITERIA BAR (Nama, Jenis, Harga, Terlaris, Populer) */}
+      <div className="space-y-1.5 bg-white dark:bg-slate-900 rounded-2xl p-2.5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+        {/* Pencarian Nama Input */}
         <div className="relative flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-blue-600 dark:text-sky-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari empal gentong, nasi jamblang, obat, sayur di Arjawinangun..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-blue-200/80 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs transition-all"
+              placeholder="Cari warung, nasi jamblang, tahu gejrot, seblak, es teh..."
+              className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-bold"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                title="Hapus pencarian"
               >
-                ✕
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
+
+          <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap px-1">
+            <span className="font-mono text-blue-600 dark:text-sky-400 font-extrabold">{filteredProducts.length}</span> menu
+          </div>
+        </div>
+
+        {/* Kriteria Urutkan (Terlaris / Populer / Harga Rendah / Harga Tinggi / Nama) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-[11px] font-bold">
+          <span className="text-slate-400 text-[10px] uppercase font-bold shrink-0 tracking-wider mr-0.5">
+            Urutkan:
+          </span>
+
           <button
-            onClick={() => showToast('Filter lokasi Arjawinangun aktif')}
-            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-blue-200/80 dark:border-slate-800 text-blue-600 dark:text-sky-400 hover:bg-blue-50 dark:hover:bg-slate-800 shrink-0 shadow-xs"
+            onClick={() => setSortBy('terlaris')}
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 whitespace-nowrap transition-colors shrink-0 ${
+              sortBy === 'terlaris'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <Flame className="w-3 h-3 text-amber-300" />
+            <span>Terlaris</span>
+          </button>
+
+          <button
+            onClick={() => setSortBy('populer')}
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 whitespace-nowrap transition-colors shrink-0 ${
+              sortBy === 'populer'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Star className="w-3 h-3 text-yellow-300 fill-yellow-300" />
+            <span>Populer</span>
+          </button>
+
+          <button
+            onClick={() => setSortBy(sortBy === 'harga_asc' ? 'harga_desc' : 'harga_asc')}
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1 whitespace-nowrap transition-colors shrink-0 ${
+              sortBy === 'harga_asc' || sortBy === 'harga_desc'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <ArrowDownUp className="w-3 h-3" />
+            <span>Harga: {sortBy === 'harga_desc' ? 'Termahal' : 'Termurah'}</span>
+          </button>
+
+          <button
+            onClick={() => setSortBy('nama_asc')}
+            className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition-colors shrink-0 ${
+              sortBy === 'nama_asc'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Nama A-Z
           </button>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 text-xs">
+        {/* Kriteria Jenis / Kategori (Semua, Warung Makan, Jajanan & Camilan, Minuman & Es, Khas Cirebon, Sembako) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-slate-100 dark:border-slate-800/80 text-[11px] font-bold">
+          <span className="text-slate-400 text-[10px] uppercase font-bold shrink-0 tracking-wider mr-0.5">
+            Jenis:
+          </span>
+
           <button
-            onClick={() => setFilterType('all')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
-              filterType === 'all'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-blue-300'
+            onClick={() => setCategoryFilter('all')}
+            className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors shrink-0 ${
+              categoryFilter === 'all'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700'
             }`}
           >
             Semua
           </button>
+
           <button
-            onClick={() => setFilterType('nearest')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
-              filterType === 'nearest'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-blue-300'
+            onClick={() => setCategoryFilter('warung_makan')}
+            className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors shrink-0 ${
+              categoryFilter === 'warung_makan'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700'
             }`}
           >
-            Terdekat (&le; 1.2 km)
+            🍲 Warung Makan
           </button>
+
           <button
-            onClick={() => setFilterType('highest_rated')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
-              filterType === 'highest_rated'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-blue-300'
+            onClick={() => setCategoryFilter('jajanan')}
+            className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors shrink-0 ${
+              categoryFilter === 'jajanan'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700'
             }`}
           >
-            Rating Tertinggi (4.8+)
+            🍡 Jajanan & Camilan
           </button>
+
           <button
-            onClick={() => setFilterType('promo')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
-              filterType === 'promo'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-blue-300'
+            onClick={() => setCategoryFilter('minuman')}
+            className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors shrink-0 ${
+              categoryFilter === 'minuman'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700'
             }`}
           >
-            Promo Diskon
+            🥤 Minuman & Es
           </button>
+
           <button
-            onClick={() => setFilterType('open')}
-            className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shrink-0 ${
-              filterType === 'open'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25'
-                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-blue-300'
+            onClick={() => setCategoryFilter('cirebon')}
+            className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors shrink-0 ${
+              categoryFilter === 'cirebon'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700'
             }`}
           >
-            Buka Sekarang
+            🌶️ Khas Cirebon
+          </button>
+
+          <button
+            onClick={() => setCategoryFilter('sembako')}
+            className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors shrink-0 ${
+              categoryFilter === 'sembako'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            🛒 Sembako Warung
           </button>
         </div>
-      </section>
+      </div>
 
-      {/* Quick MitraPay Action Card with Blue Gradient Design */}
-      <section className="bg-gradient-to-r from-blue-800 via-indigo-800 to-sky-700 text-white rounded-3xl p-4 sm:p-5 shadow-xl shadow-blue-900/20 border border-blue-400/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs text-white flex items-center justify-center font-black text-xl shadow-inner">
-            <span>Rp</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-blue-200 uppercase tracking-wider">MitraPay Saldo</span>
-              <span className="text-[10px] bg-white/20 text-white font-bold px-2 py-0.5 rounded-full">
-                {user.loyaltyLevel.toUpperCase()}
-              </span>
-            </div>
-            <div className="text-xl sm:text-2xl font-black font-mono text-white tabular-nums tracking-tight">
-              Rp{walletBalance.toLocaleString('id-ID')}
-            </div>
-          </div>
-          <div className="ml-auto sm:ml-4 pl-3 border-l border-white/20 text-right sm:text-left">
-            <div className="text-[10px] text-blue-200 font-medium">Poin Loyalitas</div>
-            <div className="text-xs sm:text-sm font-bold text-amber-300 flex items-center gap-1 font-mono">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>{user.points} pts</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-2 shrink-0">
-          <button
-            onClick={() => setActiveTab('wallet')}
-            className="flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold backdrop-blur-xs transition-colors"
-          >
-            <ArrowUpRight className="w-3.5 h-3.5 text-sky-300" />
-            <span>Top Up</span>
-          </button>
-          <button
-            onClick={() => showToast('Buka Pemindai QRIS MitraPay')}
-            className="flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold backdrop-blur-xs transition-colors"
-          >
-            <QrCode className="w-3.5 h-3.5 text-sky-300" />
-            <span>Bayar QR</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('wallet')}
-            className="flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold backdrop-blur-xs transition-colors"
-          >
-            <Send className="w-3.5 h-3.5 text-sky-300" />
-            <span>Transfer</span>
-          </button>
-        </div>
-      </section>
-
-      {/* KYC Verification Reminder Banner (if not fully verified) */}
-      {user.verificationStatus !== 'verified' && (
-        <section className="bg-gradient-to-r from-blue-500/10 via-sky-500/10 to-indigo-500/10 border border-blue-300 dark:border-blue-800/60 rounded-2xl p-3.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-sky-400 shrink-0" />
-            <div>
-              <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                Verifikasi Akun & Dapatkan +50 Poin MitraArja
-              </h5>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Upload foto KTP dan foto selfie untuk batas saldo tanpa limit.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsKycModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shrink-0 shadow-sm"
-          >
-            Verifikasi
-          </button>
-        </section>
-      )}
-
-      {/* Active Order Live Tracker Banner (If Order in progress) */}
-      <ActiveOrderWidget />
-
-      {/* Main Promo Carousel */}
-      <BannerCarousel />
-
-      {/* Super-App Services Grid */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-            Layanan MitraArja · AWD
+      {/* 4. KATALOG UTAMA KERAPATAN SHOPEE (Hanya Gambar, Nama, dan Harga) */}
+      <section className="space-y-1.5">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+            <span>Katalog Produk Warung & Jajanan</span>
           </h3>
-          <span className="text-[11px] font-semibold text-blue-600 dark:text-sky-400">
-            Arjawinangun & Sekitarnya
+          <span className="text-[10px] text-slate-400 font-medium">
+            Kerapatan E-Commerce Shopee
           </span>
         </div>
-        <ServiceGrid />
-      </section>
 
-      {/* Vouchers & Promos Horizontal Strip */}
-      <section className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-            <Tag className="w-4 h-4 text-blue-600" />
-            <span>Kupon & Diskon Spesial Hari Ini</span>
-          </h3>
-          <span className="text-xs text-blue-600 dark:text-sky-400 font-semibold cursor-pointer">
-            Lihat Semua
-          </span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {VOUCHERS_LIST.map(v => (
-            <div
-              key={v.code}
-              className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-blue-100 dark:border-slate-800 shadow-xs flex items-center justify-between gap-2 hover:border-blue-400 transition-colors"
-            >
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-extrabold font-mono text-blue-700 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md">
-                    {v.code}
-                  </span>
-                  <span className="text-[10px] text-slate-400">{v.expiry}</span>
-                </div>
-                <div className="text-xs font-bold text-slate-900 dark:text-white mt-1">
-                  {v.title}
-                </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {v.minOrder}
-                </div>
-              </div>
-              <button
-                onClick={() => showToast(`Kupon ${v.code} berhasil disalin!`)}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 p-2 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/60 shrink-0 transition-colors"
-              >
-                Gunakan
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Featured Merchants & Stores in Arjawinangun */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-              {filterType === 'all' ? 'Merchant & Kuliner Pilihan Arjawinangun' : 'Hasil Filter Toko'}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Mitra resmi UMKM lokal terverifikasi siap antar langsung oleh kurir AWD
+        {filteredProducts.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-800 space-y-3">
+            <p className="text-xs sm:text-sm text-slate-500">
+              Tidak ada produk yang cocok dengan pencarian "{searchQuery}"
             </p>
-          </div>
-          <button
-            onClick={() => setActiveService('food')}
-            className="text-xs text-blue-600 dark:text-sky-400 font-bold hover:underline flex items-center gap-0.5"
-          >
-            <span>Selengkapnya</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {filteredMerchants.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 text-center border border-slate-200 dark:border-slate-800">
-            <p className="text-sm text-slate-500">Tidak ada merchant yang cocok dengan pencarian "{searchQuery}"</p>
             <button
               onClick={() => {
                 setSearchQuery('');
-                setFilterType('all');
+                setCategoryFilter('all');
+                setSortBy('terlaris');
               }}
-              className="mt-3 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold shadow-md shadow-blue-500/25"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold shadow-md shadow-blue-500/25"
             >
-              Reset Filter
+              Reset Filter & Pencarian
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMerchants.map(merchant => (
-              <MerchantCard key={merchant.id} merchant={merchant} />
+          /* Grid Kerapatan Shopee: 2 kolom di mobile, 3 di sm, 4 di md, 5 di lg dengan gap rapat */
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-2.5">
+            {filteredProducts.map(({ item, merchant }) => (
+              <ShopeeProductCard
+                key={`${merchant.id}-${item.id}`}
+                item={item}
+                merchant={merchant}
+                onSelect={() => setSelectedMerchant(merchant)}
+              />
             ))}
           </div>
         )}

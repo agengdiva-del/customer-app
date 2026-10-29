@@ -33,6 +33,7 @@ export const AccountView: React.FC = () => {
     tickets, 
     createTicket, 
     updateUserProfile,
+    openAuthModal,
     showToast 
   } = useApp();
 
@@ -101,7 +102,7 @@ export const AccountView: React.FC = () => {
   return (
     <div className="space-y-5 pb-20">
       {/* Profile Header Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-blue-100 dark:border-slate-800 shadow-xs flex items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-blue-100 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="relative">
             <img
@@ -122,13 +123,9 @@ export const AccountView: React.FC = () => {
             <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
               {user.phone} · {user.email}
             </p>
-            <div className="mt-1.5 flex items-center gap-2">
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
-                user.verificationStatus === 'verified'
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-sky-300'
-                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-              }`}>
-                {user.verificationStatus === 'verified' ? '✓ Terverifikasi KYC' : 'Belum Verifikasi'}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full capitalize bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                ✓ Akun Aktif (HP Terverifikasi)
               </span>
               <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold px-2 py-0.5 rounded-full">
                 Tier {user.loyaltyLevel.toUpperCase()}
@@ -137,12 +134,20 @@ export const AccountView: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsKycModalOpen(true)}
-          className="px-3.5 py-1.5 rounded-xl border border-blue-600 text-blue-600 dark:text-sky-400 text-xs font-bold hover:bg-blue-50 dark:hover:bg-blue-950/40 shrink-0 transition-colors"
-        >
-          {user.verificationStatus === 'verified' ? 'Detail KYC' : 'Verifikasi'}
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => openAuthModal('register')}
+            className="flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold hover:from-blue-700 shrink-0 shadow-xs transition-colors"
+          >
+            Formulir Pendaftaran
+          </button>
+          <button
+            onClick={() => setIsKycModalOpen(true)}
+            className="flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl border border-blue-600 text-blue-600 dark:text-sky-400 text-xs font-bold hover:bg-blue-50 dark:hover:bg-blue-950/40 shrink-0 transition-colors"
+          >
+            Detail KYC
+          </button>
+        </div>
       </div>
 
       {/* Loyalty & Points Progress with Blue Gradient */}
@@ -228,6 +233,19 @@ export const AccountView: React.FC = () => {
                 </div>
                 <div className="text-slate-500 dark:text-slate-400 mt-0.5">
                   {addr.streetAddress}, Desa {addr.village}, Kec. {addr.district}
+                </div>
+                {addr.landmark && (
+                  <div className="text-slate-700 dark:text-slate-300 text-[11px] mt-0.5 font-medium flex items-center gap-1">
+                    <span className="text-blue-600 font-bold">Patokan:</span> {addr.landmark}
+                  </div>
+                )}
+                {addr.driverNotes && (
+                  <div className="text-slate-500 text-[10px] mt-0.5 italic">
+                    Catatan Driver: "{addr.driverNotes}"
+                  </div>
+                )}
+                <div className="text-sky-600 dark:text-sky-400 font-mono text-[10px] mt-0.5 flex items-center gap-1">
+                  <span>GPS: {addr.latitude?.toFixed(5)}, {addr.longitude?.toFixed(5)}</span>
                 </div>
                 <div className="text-slate-400 text-[10px] mt-0.5">
                   Penerima: {addr.recipientName} ({addr.phone})
@@ -340,14 +358,24 @@ export const AccountView: React.FC = () => {
         </div>
       </div>
 
-      {/* Account Rules Notice */}
-      <div className="p-4 rounded-3xl bg-blue-50/50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 text-xs space-y-1 border border-blue-100/60 dark:border-slate-800">
-        <span className="font-bold text-slate-900 dark:text-white block">
-          Peraturan Marketplace AWD · Arjawinangun Delivery
-        </span>
-        <p className="text-[11px] leading-relaxed">
-          AWD (By Wong Nangun) adalah platform penghubung hiperlokal terpercaya. Komisi driver 10%, biaya platform Rp1.500 - Rp2.500 per transaksi untuk pemeliharaan server, pemetaan GPS & asuransi perlindungan konsumen.
+      {/* Dedicated Customer App Notice & Ecosystem Separation */}
+      <div className="p-4 rounded-3xl bg-gradient-to-r from-blue-50/80 to-sky-50/80 dark:from-slate-800/80 dark:to-slate-800/50 text-slate-700 dark:text-slate-300 text-xs space-y-2 border border-blue-200/70 dark:border-slate-700 shadow-2xs">
+        <div className="flex items-center justify-between">
+          <span className="font-extrabold text-blue-900 dark:text-sky-300 text-xs flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            Aplikasi Khusus Pelanggan AWD
+          </span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-sky-400">
+            Versi Pelanggan
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+          Aplikasi ini didesain ringkas khusus untuk pelanggan memesan makanan dari warung lokal, jajanan, kebutuhan sembako, dan layanan kurir di Arjawinangun.
         </p>
+        <div className="pt-2 border-t border-blue-200/50 dark:border-slate-700/60 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+          <span className="font-semibold text-slate-700 dark:text-slate-300">Aplikasi Terpisah:</span>
+          <span>Aplikasi Mitra Driver & Mitra Toko dikelola mandiri terpisah dari aplikasi ini.</span>
+        </div>
       </div>
 
       {/* Logout Button */}

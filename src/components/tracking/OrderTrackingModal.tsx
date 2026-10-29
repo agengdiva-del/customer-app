@@ -215,14 +215,10 @@ export const OrderTrackingModal: React.FC = () => {
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Status Pengantaran Terkini
                 </h4>
-                {/* Manual Advance Button for Reviewers / Evaluation */}
-                <button
-                  onClick={() => advanceOrderStatus(activeOrder.id)}
-                  className="text-xs font-bold text-blue-600 dark:text-sky-400 hover:underline flex items-center gap-1"
-                >
-                  <RotateCw className="w-3.5 h-3.5" />
-                  <span>Simulasikan Status Selanjutnya</span>
-                </button>
+                <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Pelacakan GPS Aktif</span>
+                </div>
               </div>
 
               <div className="relative border-l-2 border-blue-500/30 ml-4 pl-4 space-y-4 text-xs">

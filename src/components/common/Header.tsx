@@ -9,8 +9,8 @@ import {
   Sun, 
   Smartphone, 
   Monitor, 
-  Database,
-  Plus
+  Plus,
+  UserPlus
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -25,8 +25,8 @@ export const Header: React.FC = () => {
     toggleDarkMode, 
     isMobileFrame, 
     toggleMobileFrame,
-    setIsEnterpriseHubOpen,
-    setActiveService
+    setActiveService,
+    openAuthModal
   } = useApp();
 
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
@@ -57,11 +57,11 @@ export const Header: React.FC = () => {
                   AWD
                 </span>
                 <span className="text-slate-800 dark:text-slate-200 text-sm font-bold">
-                  Mitra<span className="text-blue-600">Arja</span>
+                  Pelanggan
                 </span>
               </div>
               <span className="text-[10px] text-blue-600 dark:text-sky-400 block tracking-wider font-bold uppercase mt-0.5">
-                Arjawinangun Delivery · By Wong Nangun
+                Arjawinangun Delivery · App Pelanggan
               </span>
             </div>
           </button>
@@ -137,6 +137,16 @@ export const Header: React.FC = () => {
 
         {/* Right: Wallet, DB Hub, Theme, Frame Toggle, Notifs */}
         <div className="flex items-center gap-2">
+          {/* Quick Customer Registration Trigger */}
+          <button
+            onClick={() => openAuthModal('register')}
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-blue-500/80 text-blue-600 dark:text-sky-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-xs font-bold transition-all shadow-xs"
+            title="Buka Form Pendaftaran App Pelanggan Baru"
+          >
+            <UserPlus className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+            <span>Daftar Pelanggan</span>
+          </button>
+
           {/* MitraPay Balance Chip (Blue Gradient) */}
           <button
             onClick={() => setActiveTab('wallet')}
@@ -153,16 +163,6 @@ export const Header: React.FC = () => {
             <span className="text-xs font-bold font-mono tabular-nums xs:hidden">
               Rp{(walletBalance / 1000).toFixed(0)}rb
             </span>
-          </button>
-
-          {/* Enterprise Schema Hub Button */}
-          <button
-            onClick={() => setIsEnterpriseHubOpen(true)}
-            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-colors"
-            title="Lihat Supabase Database Schema & Arsitektur Flutter"
-          >
-            <Database className="w-3.5 h-3.5 text-blue-500" />
-            <span>Supabase & Flutter</span>
           </button>
 
           {/* Notification Bell */}
